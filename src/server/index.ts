@@ -170,7 +170,7 @@ app.all("*", async (c, next) => {
     bodyEncoding,
   };
 
-  logger.info(
+  logger.debug(
     `[REQ] ${subdomain} - ${capturedRequest.method} ${capturedRequest.path}`
   );
 
