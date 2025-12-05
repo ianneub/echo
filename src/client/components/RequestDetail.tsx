@@ -18,7 +18,7 @@ const methodColors: Record<string, string> = {
 
 function formatTimestamp(timestamp: string): string {
   const date = new Date(timestamp);
-  return date.toLocaleString("en-US", {
+  const formatted = date.toLocaleString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -27,6 +27,8 @@ function formatTimestamp(timestamp: string): string {
     second: "2-digit",
     hour12: false,
   });
+  const ms = date.getMilliseconds().toString().padStart(3, "0");
+  return `${formatted}.${ms}`;
 }
 
 function formatSize(bytes: number): string {
