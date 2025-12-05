@@ -1,5 +1,7 @@
 # Echo
 
+[![Build Status](https://github.com/ianneub/echo/actions/workflows/build.yml/badge.svg)](https://github.com/ianneub/echo/actions/workflows/build.yml)
+
 A real-time HTTP request inspector. Capture and view incoming webhook requests instantly via WebSocket - no storage, no logs, just live data.
 
 **[Production Deployment Guide](DEPLOYMENT.md)** - Deploy Echo with Docker and Traefik
