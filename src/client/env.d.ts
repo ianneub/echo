@@ -7,3 +7,11 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare global {
+  interface Window {
+    __ECHO_DOMAIN__?: string;
+  }
+}
+
+export {};

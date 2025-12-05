@@ -9,7 +9,10 @@ import { useWebSocket, type ConnectionStatus } from "@/hooks/useWebSocket";
 import type { CapturedRequest } from "@shared/types";
 import { cn } from "@/lib/utils";
 
-const ECHO_DOMAIN = import.meta.env.VITE_ECHO_DOMAIN || "echo.example.com";
+const ECHO_DOMAIN =
+  (typeof window !== "undefined" && window.__ECHO_DOMAIN__) ||
+  import.meta.env.VITE_ECHO_DOMAIN ||
+  "echo.example.com";
 
 function StatusIndicator({ status }: { status: ConnectionStatus }) {
   const statusConfig = {

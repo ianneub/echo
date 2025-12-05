@@ -3,7 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Terminal, Zap, Eye, ArrowRight } from "lucide-react";
 
-const ECHO_DOMAIN = import.meta.env.VITE_ECHO_DOMAIN || "echo.example.com";
+const ECHO_DOMAIN =
+  (typeof window !== "undefined" && window.__ECHO_DOMAIN__) ||
+  import.meta.env.VITE_ECHO_DOMAIN ||
+  "echo.example.com";
 
 function generateRandomSubdomain(): string {
   const adjectives = ["swift", "bright", "cool", "quick", "neat", "bold", "calm", "keen"];

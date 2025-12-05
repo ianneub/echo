@@ -113,11 +113,40 @@ app.all("*", async (c, next) => {
   return c.text("OK", 200);
 });
 
-// Serve static files for the main domain (SPA)
-app.use("*", serveStatic({ root: "./dist/client" }));
+// Read index.html once at startup and inject runtime config
+const indexHtmlPath = "./dist/client/index.html";
+let indexHtml = "";
+try {
+  indexHtml = await Bun.file(indexHtmlPath).text();
+} catch {
+  // Dev mode - file may not exist yet
+}
 
-// Fallback to index.html for SPA routing
-app.get("*", serveStatic({ path: "./dist/client/index.html" }));
+function getInjectedHtml(): string {
+  if (!indexHtml) return "";
+  const script = `<script>window.__ECHO_DOMAIN__ = ${JSON.stringify(MAIN_DOMAIN)};</script>`;
+  return indexHtml.replace("<head>", `<head>${script}`);
+}
+
+// Serve static assets (but not index.html - that's handled below with injection)
+app.use(
+  "*",
+  serveStatic({
+    root: "./dist/client",
+    rewriteRequestPath: (path) => {
+      // Don't serve index.html via static middleware - let the fallback handler do it
+      if (path === "/" || path === "/index.html") {
+        return "/__non_existent__";
+      }
+      return path;
+    },
+  })
+);
+
+// Fallback to index.html for SPA routing (with injected config)
+app.get("*", (c) => {
+  return c.html(getInjectedHtml());
+});
 
 // WebSocket data type
 interface WebSocketData {

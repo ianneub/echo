@@ -12,10 +12,6 @@ RUN bun install --frozen-lockfile
 # Copy source code
 COPY . .
 
-# Build arg for domain (baked into frontend at build time)
-ARG ECHO_DOMAIN=echo.example.com
-ENV ECHO_DOMAIN=$ECHO_DOMAIN
-
 # Build frontend
 RUN bun run build
 
