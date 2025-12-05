@@ -59,6 +59,12 @@ bun run build
 bun run start
 ```
 
+### Run tests
+
+```bash
+bun test
+```
+
 ### Build locally
 
 ```bash

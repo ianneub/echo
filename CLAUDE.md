@@ -31,6 +31,9 @@ bun run build
 # Run production server
 bun run start
 
+# Run tests
+bun test
+
 # Docker build (requires ECHO_DOMAIN arg)
 docker build --build-arg ECHO_DOMAIN=echo.example.com -t echo .
 ```
@@ -69,3 +72,5 @@ src/
 
 - **Keep README.md up to date**: When adding new features, environment variables, or configuration options, always update the README.md file to reflect these changes.
 - **Keep DEPLOYMENT.md up to date**: When adding new environment variables or configuration that affects production deployments, update the DEPLOYMENT.md file with examples.
+- **Write tests**: When adding new functionality or fixing bugs, write tests to cover the changes. Test files should be colocated with source files using the `.test.ts` naming convention.
+- **Run tests after changes**: Always run `bun test` after modifying code to ensure nothing is broken.
