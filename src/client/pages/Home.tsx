@@ -9,8 +9,8 @@ const ECHO_DOMAIN =
   "echo.example.com";
 
 function generateRandomSubdomain(): string {
-  const adjectives = ["swift", "bright", "cool", "quick", "neat", "bold", "calm", "keen"];
-  const nouns = ["fox", "owl", "bear", "wolf", "hawk", "lynx", "deer", "hare"];
+  const adjectives = ["swift", "bright", "cool", "quick", "neat", "bold", "calm", "keen", "hyper", "playful"];
+  const nouns = ["fox", "owl", "bear", "wolf", "hawk", "lynx", "deer", "hare", "dog", "cat"];
   const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
   const noun = nouns[Math.floor(Math.random() * nouns.length)];
   const num = Math.floor(Math.random() * 100);
