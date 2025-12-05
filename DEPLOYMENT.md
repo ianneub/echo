@@ -45,9 +45,22 @@ docker compose up -d
 
 ### Environment Variables
 
-| Variable | Description | Example |
+| Variable | Description | Default |
 |----------|-------------|---------|
 | ECHO_DOMAIN | Root domain for the Echo service | echo.example.com |
+| LOG_LEVEL | Log verbosity (debug/info/warn/error/silent) | info |
+
+Example with quiet logging for production:
+
+```yaml
+services:
+  echo:
+    image: ghcr.io/ianneub/echo:latest
+    restart: unless-stopped
+    environment:
+      - ECHO_DOMAIN=echo.example.com
+      - LOG_LEVEL=warn
+```
 
 ## Reverse Proxy Configuration
 

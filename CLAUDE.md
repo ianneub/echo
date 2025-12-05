@@ -63,3 +63,9 @@ src/
 ## Environment Variables
 
 - `ECHO_DOMAIN`: Root domain (default: "echo.example.com"), also available as `VITE_ECHO_DOMAIN` in frontend
+- `LOG_LEVEL`: Server log verbosity (debug/info/warn/error/silent), default: "info"
+
+## Important Guidelines
+
+- **Keep README.md up to date**: When adding new features, environment variables, or configuration options, always update the README.md file to reflect these changes.
+- **Keep DEPLOYMENT.md up to date**: When adding new environment variables or configuration that affects production deployments, update the DEPLOYMENT.md file with examples.

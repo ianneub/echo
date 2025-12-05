@@ -74,6 +74,7 @@ docker run -p 3000:3000 echo
 | Response status | 200 OK |
 | Response body | "OK" |
 | Server port | 3000 |
+| Log level | `LOG_LEVEL` env var (debug/info/warn/error/silent), default: info |
 
 ## Architecture
 

@@ -1,5 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import type { CapturedRequest, WebSocketMessage } from "../../shared/types";
+import { logger } from "./logger";
 
 const MAX_CONNECTIONS_PER_SUBDOMAIN = 5;
 
@@ -18,7 +19,7 @@ export function addConnection(
 
   subs.add(ws);
   connections.set(subdomain, subs);
-  console.log(
+  logger.debug(
     `[WS] Added connection for ${subdomain}. Total: ${subs.size}`
   );
   return true;
@@ -31,7 +32,7 @@ export function removeConnection(
   const subs = connections.get(subdomain);
   if (subs) {
     subs.delete(ws);
-    console.log(
+    logger.debug(
       `[WS] Removed connection for ${subdomain}. Remaining: ${subs.size}`
     );
     if (subs.size === 0) {
@@ -46,7 +47,7 @@ export function broadcastToSubdomain(
 ): void {
   const subs = connections.get(subdomain);
   if (!subs || subs.size === 0) {
-    console.log(`[WS] No listeners for subdomain: ${subdomain}`);
+    logger.debug(`[WS] No listeners for subdomain: ${subdomain}`);
     return;
   }
 
@@ -63,12 +64,12 @@ export function broadcastToSubdomain(
       ws.send(payload);
       sent++;
     } catch (error) {
-      console.error(`[WS] Failed to send to client:`, error);
+      logger.error(`[WS] Failed to send to client:`, error);
       subs.delete(ws);
     }
   }
 
-  console.log(
+  logger.debug(
     `[WS] Broadcast to ${sent}/${subs.size} clients for ${subdomain}`
   );
 }

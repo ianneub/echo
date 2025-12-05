@@ -7,6 +7,7 @@ import {
   removeConnection,
   broadcastToSubdomain,
 } from "./lib/connections";
+import { logger } from "./lib/logger";
 import type { CapturedRequest } from "../shared/types";
 
 const app = new Hono();
@@ -57,7 +58,7 @@ app.all("*", async (c, next) => {
   const host = c.req.header("host") || "";
   const subdomain = getSubdomain(host);
 
-  console.log(`[DEBUG] Request received - Host: ${host}, Subdomain: ${subdomain}, Path: ${c.req.path}`);
+  logger.debug(`[DEBUG] Request received - Host: ${host}, Subdomain: ${subdomain}, Path: ${c.req.path}`);
 
   // If no subdomain, continue to static file serving
   if (!subdomain) {
@@ -101,7 +102,7 @@ app.all("*", async (c, next) => {
     bodySize: body.length,
   };
 
-  console.log(
+  logger.info(
     `[REQ] ${subdomain} - ${capturedRequest.method} ${capturedRequest.path}`
   );
 
@@ -166,7 +167,7 @@ const server = Bun.serve({
         return;
       }
 
-      console.log(`[WS] Client connected to subdomain: ${subdomain}`);
+      logger.info(`[WS] Client connected to subdomain: ${subdomain}`);
 
       // Send connected message
       ws.send(
@@ -178,16 +179,16 @@ const server = Bun.serve({
     },
     message(ws: ServerWebSocket<WebSocketData>, message) {
       // We don't expect messages from clients, but log if received
-      console.log(`[WS] Received message from ${ws.data.subdomain}:`, message);
+      logger.debug(`[WS] Received message from ${ws.data.subdomain}:`, message);
     },
     close(ws: ServerWebSocket<WebSocketData>) {
-      console.log(`[WS] Client disconnected from subdomain: ${ws.data.subdomain}`);
+      logger.info(`[WS] Client disconnected from subdomain: ${ws.data.subdomain}`);
       removeConnection(ws.data.subdomain, ws);
     },
   },
 });
 
-console.log(`
+logger.info(`
 ╔═══════════════════════════════════════════════════════╗
 ║                                                       ║
 ║   Echo Server running on http://localhost:3000        ║
