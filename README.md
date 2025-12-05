@@ -2,6 +2,8 @@
 
 A real-time HTTP request inspector. Capture and view incoming webhook requests instantly via WebSocket - no storage, no logs, just live data.
 
+**[Production Deployment Guide](DEPLOYMENT.md)** - Deploy Echo with Docker and Traefik
+
 ## Features
 
 - Real-time request streaming via WebSocket
@@ -9,6 +11,16 @@ A real-time HTTP request inspector. Capture and view incoming webhook requests i
 - Support for all HTTP methods
 - Dark/light mode support
 - No data storage - requests stream directly to your browser
+
+## Docker
+
+Quick start with the pre-built image:
+
+```bash
+docker run -p 3000:3000 ghcr.io/ianneub/echo:latest
+```
+
+For production deployment with custom domains, see the **[Production Deployment Guide](DEPLOYMENT.md)**.
 
 ## Development
 
@@ -44,17 +56,10 @@ bun run build
 bun run start
 ```
 
-## Docker
-
-### Build
+### Build locally
 
 ```bash
 docker build -t echo .
-```
-
-### Run
-
-```bash
 docker run -p 3000:3000 echo
 ```
 
