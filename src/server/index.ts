@@ -69,7 +69,7 @@ const BINARY_CONTENT_TYPES = [
 
 function isBinaryContentType(contentType: string | undefined): boolean {
   if (!contentType) return false;
-  const ct = contentType.toLowerCase().split(";")[0].trim();
+  const ct = (contentType.toLowerCase().split(";")[0] ?? "").trim();
   return BINARY_CONTENT_TYPES.some(
     (prefix) => ct === prefix || ct.startsWith(prefix)
   );
@@ -89,7 +89,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
   for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
+    binary += String.fromCharCode(bytes[i]!);
   }
   return btoa(binary);
 }
@@ -222,7 +222,7 @@ interface WebSocketData {
 }
 
 // Start server with WebSocket support
-const server = Bun.serve({
+const server = Bun.serve<WebSocketData>({
   port: 3000,
   fetch(req, server) {
     const url = new URL(req.url);
