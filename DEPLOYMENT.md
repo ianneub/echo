@@ -93,6 +93,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.echo.rule=HostRegexp(`^.+\\.echo\\.example\\.com$`) || Host(`echo.example.com`)"
       - "traefik.http.routers.echo.entrypoints=websecure"
+      - "traefik.http.routers.echo.tls=true"
       - "traefik.http.services.echo.loadbalancer.server.port=3000"
 
 networks:
