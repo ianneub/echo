@@ -8,7 +8,7 @@ import {
   broadcastToSubdomain,
 } from "./lib/connections";
 import { logger } from "./lib/logger";
-import type { CapturedRequest } from "../shared/types";
+import type { CapturedRequest, BodyEncoding } from "../shared/types";
 
 const app = new Hono();
 
@@ -50,6 +50,50 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
+// Binary content type prefixes
+const BINARY_CONTENT_TYPES = [
+  "application/octet-stream",
+  "application/pdf",
+  "application/zip",
+  "application/gzip",
+  "application/x-tar",
+  "application/x-rar-compressed",
+  "application/x-7z-compressed",
+  "application/x-protobuf",
+  "application/msgpack",
+  "application/x-msgpack",
+  "image/",
+  "audio/",
+  "video/",
+];
+
+function isBinaryContentType(contentType: string | undefined): boolean {
+  if (!contentType) return false;
+  const ct = contentType.toLowerCase().split(";")[0].trim();
+  return BINARY_CONTENT_TYPES.some(
+    (prefix) => ct === prefix || ct.startsWith(prefix)
+  );
+}
+
+function isValidUtf8(buffer: ArrayBuffer): boolean {
+  try {
+    const decoder = new TextDecoder("utf-8", { fatal: true });
+    decoder.decode(buffer);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 // Health check endpoint
 app.get("/health", (c) => c.json({ status: "ok" }));
 
@@ -74,12 +118,35 @@ app.all("*", async (c, next) => {
     return c.text("Request body too large (max 10MB)", 413);
   }
 
-  // Read body as text
+  // Read body as ArrayBuffer to properly handle binary data
   let body = "";
+  let bodyEncoding: BodyEncoding = "text";
+  let bodySize = 0;
+
   try {
-    body = await c.req.text();
-    if (body.length > MAX_BODY_SIZE) {
+    const arrayBuffer = await c.req.arrayBuffer();
+    bodySize = arrayBuffer.byteLength;
+
+    if (bodySize > MAX_BODY_SIZE) {
       return c.text("Request body too large (max 10MB)", 413);
+    }
+
+    if (bodySize > 0) {
+      const contentType = c.req.header("content-type");
+
+      // Determine if content is binary by Content-Type or UTF-8 validation
+      const isBinary =
+        isBinaryContentType(contentType) || !isValidUtf8(arrayBuffer);
+
+      if (isBinary) {
+        // Base64 encode binary data for safe JSON transmission
+        body = arrayBufferToBase64(arrayBuffer);
+        bodyEncoding = "base64";
+      } else {
+        // Text content - decode as UTF-8
+        const decoder = new TextDecoder("utf-8");
+        body = decoder.decode(arrayBuffer);
+      }
     }
   } catch {
     // Body might not be readable, that's ok
@@ -99,7 +166,8 @@ app.all("*", async (c, next) => {
     query: url.search,
     headers,
     body,
-    bodySize: body.length,
+    bodySize,
+    bodyEncoding,
   };
 
   logger.info(

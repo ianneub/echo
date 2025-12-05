@@ -47,7 +47,11 @@ function tryFormatJson(str: string): { formatted: string; isJson: boolean } {
 
 export function RequestDetail({ request }: RequestDetailProps) {
   const fullPath = request.path + request.query;
-  const { formatted: formattedBody, isJson } = tryFormatJson(request.body);
+  const isBase64 = request.bodyEncoding === "base64";
+  // Only try to format as JSON if it's not binary data
+  const { formatted: formattedBody, isJson } = isBase64
+    ? { formatted: request.body, isJson: false }
+    : tryFormatJson(request.body);
 
   return (
     <div className="h-full overflow-y-auto p-4 space-y-6">
@@ -106,7 +110,12 @@ export function RequestDetail({ request }: RequestDetailProps) {
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
-              Body {isJson && <span className="text-[hsl(var(--primary))]">(JSON)</span>}
+              Body{" "}
+              {isBase64 ? (
+                <span className="text-[hsl(var(--destructive))]">(Base64)</span>
+              ) : isJson ? (
+                <span className="text-[hsl(var(--primary))]">(JSON)</span>
+              ) : null}
             </h3>
             <CopyButton text={request.body} />
           </div>

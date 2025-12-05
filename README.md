@@ -10,6 +10,7 @@ A real-time HTTP request inspector. Capture and view incoming webhook requests i
 
 - Real-time request streaming via WebSocket
 - Full request details: method, path, headers, body
+- Binary data support (images, protobuf, msgpack, etc.) with Base64 encoding
 - Support for all HTTP methods
 - Dark/light mode support
 - No data storage - requests stream directly to your browser
@@ -75,6 +76,15 @@ docker run -p 3000:3000 echo
 | Response body | "OK" |
 | Server port | 3000 |
 | Log level | `LOG_LEVEL` env var (debug/info/warn/error/silent), default: info |
+
+## Binary Data Support
+
+Binary request bodies are automatically detected and Base64-encoded for safe transmission. Detection uses:
+
+1. **Content-Type header** - Known binary types (`image/*`, `application/octet-stream`, `application/pdf`, `application/x-protobuf`, `application/msgpack`, etc.)
+2. **UTF-8 validation** - Falls back to binary if content is not valid UTF-8
+
+In the web console, binary bodies are labeled **(Base64)** and can be copied for external decoding.
 
 ## Architecture
 

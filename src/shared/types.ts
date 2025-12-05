@@ -1,3 +1,5 @@
+export type BodyEncoding = "text" | "base64";
+
 export interface CapturedRequest {
   id: string;
   timestamp: string;
@@ -7,6 +9,7 @@ export interface CapturedRequest {
   headers: Record<string, string>;
   body: string;
   bodySize: number;
+  bodyEncoding: BodyEncoding;
 }
 
 export interface WebSocketMessage {
