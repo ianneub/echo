@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Terminal, Zap, Eye, ArrowRight } from "lucide-react";
+import { Terminal, Zap, Eye, ArrowRight, Github } from "lucide-react";
 
 const ECHO_DOMAIN =
   (typeof window !== "undefined" && window.__ECHO_DOMAIN__) ||
@@ -60,9 +60,21 @@ export function Home() {
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))]/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-3">
-          <Terminal className="h-6 w-6 text-[hsl(var(--primary))]" />
-          <span className="text-xl font-semibold glow-text">echo</span>
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Terminal className="h-6 w-6 text-[hsl(var(--primary))]" />
+            <span className="text-xl font-semibold glow-text">echo</span>
+          </div>
+          <a
+            href="https://github.com/ianneub/echo"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View on GitHub"
+          >
+            <Button variant="ghost" size="icon">
+              <Github className="h-5 w-5" />
+            </Button>
+          </a>
         </div>
       </header>
 
