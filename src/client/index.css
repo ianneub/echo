@@ -26,13 +26,13 @@
   --ring: 160 84% 39%;
   --radius: 0.5rem;
 
-  --method-get: 160 84% 39%;
-  --method-post: 217 91% 60%;
-  --method-put: 38 92% 50%;
-  --method-delete: 0 84% 60%;
-  --method-patch: 280 68% 60%;
-  --method-head: 220 14% 50%;
-  --method-options: 220 14% 50%;
+  --method-get: 135 60% 55%;
+  --method-post: 43 82% 62%;
+  --method-put: 215 95% 70%;
+  --method-delete: 0 85% 67%;
+  --method-patch: 263 47% 73%;
+  --method-head: 135 60% 55%;
+  --method-options: 300 72% 70%;
 
   --glow-primary: 0 0 20px hsla(160, 84%, 39%, 0.3);
   --glow-strong: 0 0 30px hsla(160, 84%, 39%, 0.5);
@@ -59,13 +59,13 @@
   --input: 220 14% 16%;
   --ring: 160 84% 45%;
 
-  --method-get: 160 84% 50%;
-  --method-post: 217 91% 65%;
-  --method-put: 38 92% 55%;
-  --method-delete: 0 72% 55%;
-  --method-patch: 280 68% 65%;
-  --method-head: 220 14% 60%;
-  --method-options: 220 14% 60%;
+  --method-get: 135 60% 55%;
+  --method-post: 43 82% 62%;
+  --method-put: 215 95% 70%;
+  --method-delete: 0 85% 67%;
+  --method-patch: 263 47% 73%;
+  --method-head: 135 60% 55%;
+  --method-options: 300 72% 70%;
 
   --glow-primary: 0 0 20px hsla(160, 84%, 45%, 0.25);
   --glow-strong: 0 0 40px hsla(160, 84%, 45%, 0.4);
