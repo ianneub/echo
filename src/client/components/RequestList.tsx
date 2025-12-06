@@ -56,7 +56,7 @@ export function RequestList({
           key={request.id}
           onClick={() => onSelect(request)}
           className={cn(
-            "w-full text-left px-4 py-3 border-b border-[hsl(var(--border))] transition-colors duration-150 cursor-pointer",
+            "w-full text-left px-4 py-3 border-b border-[hsl(var(--border))] transition-colors duration-150 cursor-pointer focus:outline-none",
             "hover:bg-[hsl(var(--muted))]",
             selectedId === request.id && "bg-[hsl(var(--muted))]",
             index === 0 && "animate-slide-in"

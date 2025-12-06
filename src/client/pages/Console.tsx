@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Terminal, ArrowLeft, Trash2, Circle, AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,51 @@ export function Console() {
   );
   const [selectedRequest, setSelectedRequest] =
     useState<CapturedRequest | null>(null);
+
+  const navigateRequest = useCallback(
+    (direction: "up" | "down") => {
+      if (requests.length === 0) return;
+
+      if (!selectedRequest) {
+        const first = requests[0];
+        if (first) setSelectedRequest(first);
+        return;
+      }
+
+      const currentIndex = requests.findIndex(
+        (r) => r.id === selectedRequest.id
+      );
+      if (currentIndex === -1) {
+        const first = requests[0];
+        if (first) setSelectedRequest(first);
+        return;
+      }
+
+      const newIndex =
+        direction === "up"
+          ? Math.max(0, currentIndex - 1)
+          : Math.min(requests.length - 1, currentIndex + 1);
+
+      const nextRequest = requests[newIndex];
+      if (nextRequest) setSelectedRequest(nextRequest);
+    },
+    [requests, selectedRequest]
+  );
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        navigateRequest("up");
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        navigateRequest("down");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [navigateRequest]);
 
   const fullUrl = `https://${subdomain}.${ECHO_DOMAIN}/`;
 
