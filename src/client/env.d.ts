@@ -1,7 +1,8 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_ECHO_DOMAIN: string;
+  readonly VITE_CONSOLE_DOMAIN: string;
+  readonly VITE_INSPECT_DOMAIN: string;
 }
 
 interface ImportMeta {
@@ -10,7 +11,8 @@ interface ImportMeta {
 
 declare global {
   interface Window {
-    __ECHO_DOMAIN__?: string;
+    __CONSOLE_DOMAIN__?: string;
+    __INSPECT_DOMAIN__?: string;
   }
 }
 

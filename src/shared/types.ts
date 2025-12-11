@@ -26,3 +26,8 @@ export type HttpMethod =
   | "PATCH"
   | "HEAD"
   | "OPTIONS";
+
+export interface RequestFilter {
+  headerName: string | null;
+  headerValue: string | null;
+}

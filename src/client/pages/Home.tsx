@@ -1,60 +1,35 @@
-import { useState, useRef, useEffect, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Terminal, Zap, Eye, ArrowRight, Github } from "lucide-react";
+import { Terminal, Zap, Eye, ArrowRight, Github, Filter } from "lucide-react";
 
-const ECHO_DOMAIN =
-  (typeof window !== "undefined" && window.__ECHO_DOMAIN__) ||
-  import.meta.env.VITE_ECHO_DOMAIN ||
-  "echo.example.com";
-
-function generateRandomSubdomain(): string {
-  const adjectives = ["swift", "bright", "cool", "quick", "neat", "bold", "calm", "keen", "hyper", "playful"];
-  const nouns = ["fox", "owl", "bear", "wolf", "hawk", "lynx", "deer", "hare", "dog", "cat"];
-  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-  const noun = nouns[Math.floor(Math.random() * nouns.length)];
-  const num = Math.floor(Math.random() * 100);
-  return `${adj}-${noun}-${num}`;
-}
+const INSPECT_DOMAIN =
+  (typeof window !== "undefined" && window.__INSPECT_DOMAIN__) ||
+  import.meta.env.VITE_INSPECT_DOMAIN ||
+  "inspect.localhost";
 
 export function Home() {
-  const [subdomain, setSubdomain] = useState(generateRandomSubdomain);
-  const [error, setError] = useState("");
+  const [headerName, setHeaderName] = useState("");
+  const [headerValue, setHeaderValue] = useState("");
   const navigate = useNavigate();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    // Select all text in the input on mount
-    inputRef.current?.select();
-  }, []);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
 
-    // Validate subdomain
-    const cleaned = subdomain.toLowerCase().trim();
-    if (!cleaned) {
-      setError("Please enter a subdomain");
-      return;
+    // Build query params
+    const params = new URLSearchParams();
+    if (headerName.trim()) {
+      params.set("header", headerName.trim());
+      if (headerValue.trim()) {
+        params.set("value", headerValue.trim());
+      }
     }
 
-    if (!/^[a-z0-9-]+$/.test(cleaned)) {
-      setError("Only lowercase letters, numbers, and hyphens allowed");
-      return;
-    }
-
-    if (cleaned.length < 2) {
-      setError("Subdomain must be at least 2 characters");
-      return;
-    }
-
-    if (cleaned.length > 32) {
-      setError("Subdomain must be 32 characters or less");
-      return;
-    }
-
-    navigate(`/console/${cleaned}`);
+    const queryString = params.toString();
+    navigate(queryString ? `/console?${queryString}` : "/console");
   };
+
+  const inspectUrl = `https://${INSPECT_DOMAIN}/`;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -93,39 +68,53 @@ export function Home() {
             </p>
           </div>
 
-          {/* Form */}
+          {/* Inspect URL Display */}
+          <div className="mb-8 p-4 border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30">
+            <p className="text-sm text-[hsl(var(--muted-foreground))] mb-2">
+              Send requests to:
+            </p>
+            <code className="text-lg text-[hsl(var(--primary))]">
+              {inspectUrl}
+            </code>
+          </div>
+
+          {/* Filter Form */}
           <form onSubmit={handleSubmit} className="mb-12">
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center h-12 border border-[hsl(var(--input))] bg-[hsl(var(--background))] focus-within:ring-2 focus-within:ring-[hsl(var(--ring))] focus-within:ring-offset-2 focus-within:ring-offset-[hsl(var(--background))] transition-all duration-200">
-                <span className="pl-3 text-[hsl(var(--muted-foreground))] text-sm shrink-0">
-                  https://
-                </span>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder="your-subdomain"
-                  value={subdomain}
-                  onChange={(e) => {
-                    setSubdomain(e.target.value);
-                    setError("");
-                  }}
-                  className="flex-1 h-full bg-transparent px-1 text-lg focus:outline-none min-w-0"
-                  autoFocus
-                />
-                <span className="pr-3 text-[hsl(var(--muted-foreground))] text-sm shrink-0">
-                  .{ECHO_DOMAIN}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2 text-sm text-[hsl(var(--muted-foreground))]">
+                <Filter className="h-4 w-4" />
+                <span>
+                  Optional: Filter by header (leave empty to see all requests)
                 </span>
               </div>
-              <Button type="submit" size="lg" className="h-12 px-6 w-full sm:w-auto sm:self-end">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  placeholder="Header name (e.g., Authorization)"
+                  value={headerName}
+                  onChange={(e) => setHeaderName(e.target.value)}
+                  className="h-12 px-3 border border-[hsl(var(--input))] bg-[hsl(var(--background))] focus:ring-2 focus:ring-[hsl(var(--ring))] focus:outline-none"
+                />
+                <input
+                  type="text"
+                  placeholder="Header value (optional)"
+                  value={headerValue}
+                  onChange={(e) => setHeaderValue(e.target.value)}
+                  className="h-12 px-3 border border-[hsl(var(--input))] bg-[hsl(var(--background))] focus:ring-2 focus:ring-[hsl(var(--ring))] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!headerName.trim()}
+                />
+              </div>
+
+              <Button
+                type="submit"
+                size="lg"
+                className="h-12 px-6 w-full sm:w-auto sm:self-end"
+              >
                 Start Listening
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
-            {error && (
-              <p className="mt-2 text-sm text-[hsl(var(--destructive))]">
-                {error}
-              </p>
-            )}
           </form>
 
           {/* Features */}

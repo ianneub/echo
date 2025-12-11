@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
-import { Terminal, ArrowLeft, Trash2, Circle, AlertCircle, X } from "lucide-react";
+import { useSearchParams, Link } from "react-router-dom";
+import {
+  Terminal,
+  ArrowLeft,
+  Trash2,
+  Circle,
+  AlertCircle,
+  X,
+  Filter,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/CopyButton";
 import { RequestList } from "@/components/RequestList";
@@ -9,10 +17,10 @@ import { useWebSocket, type ConnectionStatus } from "@/hooks/useWebSocket";
 import type { CapturedRequest } from "@shared/types";
 import { cn } from "@/lib/utils";
 
-const ECHO_DOMAIN =
-  (typeof window !== "undefined" && window.__ECHO_DOMAIN__) ||
-  import.meta.env.VITE_ECHO_DOMAIN ||
-  "echo.example.com";
+const INSPECT_DOMAIN =
+  (typeof window !== "undefined" && window.__INSPECT_DOMAIN__) ||
+  import.meta.env.VITE_INSPECT_DOMAIN ||
+  "inspect.localhost";
 
 function StatusIndicator({ status }: { status: ConnectionStatus }) {
   const statusConfig = {
@@ -58,9 +66,13 @@ function StatusIndicator({ status }: { status: ConnectionStatus }) {
 }
 
 export function Console() {
-  const { subdomain } = useParams<{ subdomain: string }>();
+  const [searchParams] = useSearchParams();
+  const headerName = searchParams.get("header") || null;
+  const headerValue = searchParams.get("value") || null;
+
   const { status, requests, error, clearRequests } = useWebSocket(
-    subdomain || ""
+    headerName,
+    headerValue
   );
   const [selectedRequest, setSelectedRequest] =
     useState<CapturedRequest | null>(null);
@@ -110,7 +122,10 @@ export function Console() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [navigateRequest]);
 
-  const fullUrl = `https://${subdomain}.${ECHO_DOMAIN}/`;
+  const inspectUrl = `https://${INSPECT_DOMAIN}/`;
+  const filterDescription = headerName
+    ? `${headerName}${headerValue ? ` = ${headerValue}` : ""}`
+    : "All requests";
 
   return (
     <div className="h-screen flex flex-col">
@@ -138,8 +153,8 @@ export function Console() {
               <span className="text-sm text-[hsl(var(--primary))] font-medium">
                 Endpoint:
               </span>
-              <code className="text-sm flex-1">{fullUrl}</code>
-              <CopyButton text={fullUrl} />
+              <code className="text-sm flex-1">{inspectUrl}</code>
+              <CopyButton text={inspectUrl} />
             </div>
             <Button
               variant="outline"
@@ -153,6 +168,15 @@ export function Console() {
             >
               <Trash2 className="h-4 w-4" />
             </Button>
+          </div>
+
+          {/* Filter indicator */}
+          <div className="mt-2 flex items-center gap-2 px-3 py-2 border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30">
+            <Filter className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+            <span className="text-sm text-[hsl(var(--muted-foreground))]">
+              Filter:
+            </span>
+            <span className="text-sm font-medium">{filterDescription}</span>
           </div>
 
           {/* Error message */}

@@ -5,24 +5,19 @@ This guide covers deploying Echo in a production environment using Docker.
 ## Prerequisites
 
 - Docker and Docker Compose installed
-- A domain with wildcard DNS configured
+- Two domains configured (one for console, one for traffic inspection)
 - A reverse proxy (Traefik example provided)
 
 ## DNS Setup
 
-Echo requires wildcard DNS to route subdomains to your server. Configure your DNS provider with:
+Echo requires two separate domains. Configure your DNS provider with:
 
 | Type | Name | Value |
 |------|------|-------|
-| A | echo.example.com | Your server IP |
-| A | *.echo.example.com | Your server IP |
+| A | console.example.com | Your server IP |
+| A | inspect.example.com | Your server IP |
 
-Alternatively, use a CNAME if pointing to another hostname:
-
-| Type | Name | Value |
-|------|------|-------|
-| CNAME | echo.example.com | your-server.example.com |
-| CNAME | *.echo.example.com | your-server.example.com |
+Alternatively, use CNAME records if pointing to another hostname.
 
 ## Docker Compose
 
@@ -34,7 +29,8 @@ services:
     image: ghcr.io/ianneub/echo:latest
     restart: unless-stopped
     environment:
-      - ECHO_DOMAIN=echo.example.com
+      - CONSOLE_DOMAIN=console.example.com
+      - INSPECT_DOMAIN=inspect.example.com
 ```
 
 Start the service:
@@ -47,8 +43,11 @@ docker compose up -d
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| ECHO_DOMAIN | Root domain for the Echo service | echo.example.com |
+| CONSOLE_DOMAIN | Domain serving the web UI | console.localhost |
+| INSPECT_DOMAIN | Domain receiving HTTP traffic to inspect | inspect.localhost |
 | LOG_LEVEL | Log verbosity (debug/info/warn/error/silent) | info |
+
+**Important:** `CONSOLE_DOMAIN` and `INSPECT_DOMAIN` must be different values.
 
 Example with quiet logging for production:
 
@@ -58,27 +57,16 @@ services:
     image: ghcr.io/ianneub/echo:latest
     restart: unless-stopped
     environment:
-      - ECHO_DOMAIN=echo.example.com
+      - CONSOLE_DOMAIN=console.example.com
+      - INSPECT_DOMAIN=inspect.example.com
       - LOG_LEVEL=warn
 ```
 
 ## Reverse Proxy Configuration
 
-Echo requires a reverse proxy to handle wildcard subdomain routing. The docker-compose example above includes Traefik labels that configure:
+Echo requires a reverse proxy to route both domains to the same container.
 
-- Routing for the main domain (`echo.example.com`)
-- Wildcard routing for all subdomains (`*.echo.example.com`)
-- WebSocket support (handled automatically by Traefik)
-
-### Traefik Requirements
-
-Ensure your Traefik instance:
-
-1. Has Docker provider enabled to read container labels
-2. Has an entrypoint named `websecure` (or adjust the label to match your configuration)
-3. Is on the same Docker network as the Echo container (add `networks` to docker-compose.yml if needed)
-
-Example network configuration if Traefik uses a dedicated network:
+### Traefik Example
 
 ```yaml
 services:
@@ -86,51 +74,86 @@ services:
     image: ghcr.io/ianneub/echo:latest
     restart: unless-stopped
     environment:
-      - ECHO_DOMAIN=echo.example.com
+      - CONSOLE_DOMAIN=console.example.com
+      - INSPECT_DOMAIN=inspect.example.com
     networks:
       - traefik
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.echo.rule=HostRegexp(`^.+\\.echo\\.example\\.com$`) || Host(`echo.example.com`)"
-      - "traefik.http.routers.echo.entrypoints=websecure"
-      - "traefik.http.routers.echo.tls=true"
-      - "traefik.http.services.echo.loadbalancer.server.port=3000"
+      - "traefik.http.routers.rule=Host(`console.example.com`) || Host(`inspect.example.com`)"
+      - "traefik.http.routers.entrypoints=websecure"
+      - "traefik.http.routers.tls=true"
+      - "traefik.http.services.loadbalancer.server.port=3000"
 
 networks:
   traefik:
     external: true
 ```
 
+### Traefik Requirements
+
+Ensure your Traefik instance:
+
+1. Has Docker provider enabled to read container labels
+2. Has an entrypoint named `websecure` (or adjust the label to match your configuration)
+3. Is on the same Docker network as the Echo container
+
 ## Usage
 
 Once deployed:
 
-1. Visit `https://echo.example.com` to access the web interface
-2. Enter a subdomain name or generate a random one
-3. Send HTTP requests to your subdomain (e.g., `https://mytest.echo.example.com/webhook`)
-4. Watch requests appear in real-time in the console
+1. Visit `https://console.example.com` to access the web interface
+2. Optionally set a header filter (e.g., `Authorization` header)
+3. Click "Start Listening"
+4. Send HTTP requests to `https://inspect.example.com/any/path`
+5. Watch requests appear in real-time in the console
 
 ### Example: Testing a Webhook
 
 ```bash
-curl -X POST https://mytest.echo.example.com/webhook \
+curl -X POST https://inspect.example.com/webhook \
   -H "Content-Type: application/json" \
   -d '{"event": "test", "data": "hello"}'
 ```
 
-The request will appear instantly in the Echo console at `https://echo.example.com/console/mytest`.
+The request will appear instantly in the Echo console.
+
+### Example: Testing with Header Filter
+
+Set up a console filtering for `X-Request-Id` header:
+
+1. Go to `https://console.example.com`
+2. Enter `X-Request-Id` as header name
+3. Enter `test-123` as header value (optional)
+4. Click "Start Listening"
+
+Only requests with matching header will appear:
+
+```bash
+# This will appear
+curl https://inspect.example.com/webhook \
+  -H "X-Request-Id: test-123"
+
+# This will NOT appear (different value)
+curl https://inspect.example.com/webhook \
+  -H "X-Request-Id: other-value"
+
+# This will NOT appear (no header)
+curl https://inspect.example.com/webhook
+```
 
 ## Troubleshooting
 
 ### Requests not appearing
 
-- Verify wildcard DNS is resolving correctly: `dig mytest.echo.example.com`
-- Check that the reverse proxy is routing to the Echo container
+- Verify DNS is resolving correctly for both domains
+- Check that the reverse proxy is routing both domains to the Echo container
 - Ensure WebSocket connections are not being blocked by firewalls
+- Check if you have a header filter set that doesn't match incoming requests
 
 ### Connection limit reached
 
-Echo limits WebSocket connections to 5 per subdomain. Close unused browser tabs or use a different subdomain.
+Echo limits total WebSocket connections to 100. Close unused browser tabs or wait for inactive connections to timeout.
 
 ### Container not starting
 
@@ -139,3 +162,5 @@ Check logs for errors:
 ```bash
 docker compose logs echo
 ```
+
+If you see "CONSOLE_DOMAIN and INSPECT_DOMAIN must be different", ensure you've configured two distinct domain values.

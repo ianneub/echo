@@ -8,8 +8,11 @@ export default defineConfig({
   root: "src/client",
   publicDir: "../../public",
   define: {
-    "import.meta.env.VITE_ECHO_DOMAIN": JSON.stringify(
-      process.env.ECHO_DOMAIN || "echo.example.com"
+    "import.meta.env.VITE_CONSOLE_DOMAIN": JSON.stringify(
+      process.env.CONSOLE_DOMAIN || "console.localhost"
+    ),
+    "import.meta.env.VITE_INSPECT_DOMAIN": JSON.stringify(
+      process.env.INSPECT_DOMAIN || "inspect.localhost"
     ),
   },
   build: {

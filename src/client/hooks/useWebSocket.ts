@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { CapturedRequest, WebSocketMessage } from "@shared/types";
 
-export type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
+export type ConnectionStatus =
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "error";
 
 interface UseWebSocketReturn {
   status: ConnectionStatus;
@@ -10,20 +14,23 @@ interface UseWebSocketReturn {
   clearRequests: () => void;
 }
 
-export function useWebSocket(subdomain: string): UseWebSocketReturn {
+export function useWebSocket(
+  headerName: string | null,
+  headerValue: string | null
+): UseWebSocketReturn {
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [requests, setRequests] = useState<CapturedRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   const clearRequests = useCallback(() => {
     setRequests([]);
   }, []);
 
   useEffect(() => {
-    if (!subdomain) return;
-
     // Track if this effect instance is still active (for React Strict Mode)
     let isActive = true;
 
@@ -37,7 +44,18 @@ export function useWebSocket(subdomain: string): UseWebSocketReturn {
       // Determine WebSocket URL based on current location
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/ws/${subdomain}`;
+
+      // Build query params for filter
+      const params = new URLSearchParams();
+      if (headerName) {
+        params.set("header", headerName);
+        if (headerValue) {
+          params.set("value", headerValue);
+        }
+      }
+
+      const queryString = params.toString();
+      const wsUrl = `${protocol}//${host}/ws${queryString ? `?${queryString}` : ""}`;
 
       console.log(`[WS] Connecting to ${wsUrl}`);
 
@@ -79,7 +97,10 @@ export function useWebSocket(subdomain: string): UseWebSocketReturn {
         if (event.code === 4000) {
           // Connection limit reached
           setStatus("error");
-          setError(event.reason || "Connection limit reached (5 max). Please close another tab.");
+          setError(
+            event.reason ||
+              "Connection limit reached (100 max). Please try again later."
+          );
         } else {
           setStatus("disconnected");
           // Attempt to reconnect after 3 seconds
@@ -109,7 +130,7 @@ export function useWebSocket(subdomain: string): UseWebSocketReturn {
         wsRef.current = null;
       }
     };
-  }, [subdomain]);
+  }, [headerName, headerValue]);
 
   return { status, requests, error, clearRequests };
 }

@@ -10,20 +10,32 @@ A real-time HTTP request inspector. Capture and view incoming webhook requests i
 
 - Real-time request streaming via WebSocket
 - Full request details: method, path, headers, body
+- Header-based filtering to watch specific requests
 - Binary data support (images, protobuf, msgpack, etc.) with Base64 encoding
 - Support for all HTTP methods
 - Dark/light mode support
 - No data storage - requests stream directly to your browser
+
+## How It Works
+
+Echo uses two separate domains:
+- **Console Domain** - The web UI where you view captured requests
+- **Inspect Domain** - Where you send HTTP traffic to be captured
+
+This architecture avoids the complexity of wildcard TLS certificates.
 
 ## Docker
 
 Quick start with the pre-built image:
 
 ```bash
-docker run -p 3000:3000 ghcr.io/ianneub/echo:latest
+docker run -p 3000:3000 \
+  -e CONSOLE_DOMAIN=console.example.com \
+  -e INSPECT_DOMAIN=inspect.example.com \
+  ghcr.io/ianneub/echo:latest
 ```
 
-For production deployment with custom domains, see the **[Production Deployment Guide](DEPLOYMENT.md)**.
+For production deployment with reverse proxy, see the **[Production Deployment Guide](DEPLOYMENT.md)**.
 
 ## Development
 
@@ -47,6 +59,11 @@ bun run dev
 bun run dev:client
 ```
 
+For local development:
+- Frontend dev server runs on port 5173 (acts as console domain)
+- Backend server runs on port 3000 (acts as inspect domain)
+- Send test requests to `http://localhost:3000/any/path`
+
 ### Build for production
 
 ```bash
@@ -69,7 +86,10 @@ bun test
 
 ```bash
 docker build -t echo .
-docker run -p 3000:3000 echo
+docker run -p 3000:3000 \
+  -e CONSOLE_DOMAIN=console.localhost \
+  -e INSPECT_DOMAIN=inspect.localhost \
+  echo
 ```
 
 ## Configuration
@@ -77,11 +97,33 @@ docker run -p 3000:3000 echo
 | Setting | Value |
 |---------|-------|
 | Max body size | 10 MB |
-| Max WebSocket connections per subdomain | 5 |
+| Max WebSocket connections (global) | 100 |
 | Response status | 200 OK |
 | Response body | "OK" |
 | Server port | 3000 |
-| Log level | `LOG_LEVEL` env var (debug/info/warn/error/silent), default: info |
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| CONSOLE_DOMAIN | Domain serving the web UI | console.localhost |
+| INSPECT_DOMAIN | Domain receiving HTTP traffic to inspect | inspect.localhost |
+| LOG_LEVEL | Log verbosity (debug/info/warn/error/silent) | info |
+
+**Important:** `CONSOLE_DOMAIN` and `INSPECT_DOMAIN` must be different values.
+
+## Header-Based Filtering
+
+Filter captured requests by specifying a header name and optional value:
+
+1. Visit the console domain
+2. Enter a header name (e.g., `Authorization`, `X-Request-Id`)
+3. Optionally enter a header value to match
+4. Only requests with matching headers will appear
+
+Leave the filter empty to see all incoming requests.
+
+Header name matching is case-insensitive (per HTTP spec), while value matching is case-sensitive.
 
 ## Binary Data Support
 

@@ -7,7 +7,7 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/console/:subdomain" element={<Console />} />
+        <Route path="/console" element={<Console />} />
       </Routes>
     </BrowserRouter>
   );

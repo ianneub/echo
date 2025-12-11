@@ -1,11 +1,11 @@
-import { describe, test, expect, beforeEach, mock } from "bun:test";
+import { describe, test, expect, mock } from "bun:test";
 import {
   addConnection,
   removeConnection,
   getConnectionCount,
-  getTotalConnections,
-  broadcastToSubdomain,
+  broadcastRequest,
 } from "./connections";
+import type { CapturedRequest } from "../../shared/types";
 
 // Mock WebSocket object
 function createMockWs() {
@@ -14,191 +14,219 @@ function createMockWs() {
   } as unknown as import("bun").ServerWebSocket<unknown>;
 }
 
+// Helper to create a mock request
+function createMockRequest(
+  overrides: Partial<CapturedRequest> = {}
+): CapturedRequest {
+  return {
+    id: "test-id",
+    timestamp: new Date().toISOString(),
+    method: "GET",
+    path: "/test",
+    query: "",
+    headers: {},
+    body: "",
+    bodySize: 0,
+    bodyEncoding: "text",
+    ...overrides,
+  };
+}
+
 describe("connections", () => {
-  // Clear connections between tests by removing all mock connections
-  beforeEach(() => {
-    // Remove any leftover connections from previous tests
-    const subdomains = ["test", "test1", "test2", "other", "broadcast-test"];
-    for (const subdomain of subdomains) {
-      while (getConnectionCount(subdomain) > 0) {
-        // We can't easily clear without a reference, so we rely on test isolation
-      }
-    }
-  });
-
   describe("addConnection", () => {
-    test("adds a connection and returns true", () => {
+    test("adds a connection with no filter and returns true", () => {
       const ws = createMockWs();
-      const result = addConnection("test-add", ws);
+      const filter = { headerName: null, headerValue: null };
+      const result = addConnection(ws, filter);
       expect(result).toBe(true);
-      expect(getConnectionCount("test-add")).toBe(1);
+      expect(getConnectionCount()).toBeGreaterThan(0);
 
       // Cleanup
-      removeConnection("test-add", ws);
+      removeConnection(ws);
     });
 
-    test("allows up to 5 connections per subdomain", () => {
-      const connections = [];
-      for (let i = 0; i < 5; i++) {
-        const ws = createMockWs();
-        connections.push(ws);
-        const result = addConnection("test-limit", ws);
-        expect(result).toBe(true);
-      }
-      expect(getConnectionCount("test-limit")).toBe(5);
+    test("adds a connection with header filter", () => {
+      const ws = createMockWs();
+      const filter = { headerName: "Authorization", headerValue: "Bearer xyz" };
+      const result = addConnection(ws, filter);
+      expect(result).toBe(true);
 
       // Cleanup
-      for (const ws of connections) {
-        removeConnection("test-limit", ws);
-      }
+      removeConnection(ws);
     });
 
-    test("rejects 6th connection and returns false", () => {
-      const connections = [];
-      for (let i = 0; i < 5; i++) {
-        const ws = createMockWs();
-        connections.push(ws);
-        addConnection("test-reject", ws);
-      }
-
-      const sixthWs = createMockWs();
-      const result = addConnection("test-reject", sixthWs);
-      expect(result).toBe(false);
-      expect(getConnectionCount("test-reject")).toBe(5);
+    test("adds a connection with header name only filter", () => {
+      const ws = createMockWs();
+      const filter = { headerName: "X-Request-Id", headerValue: null };
+      const result = addConnection(ws, filter);
+      expect(result).toBe(true);
 
       // Cleanup
-      for (const ws of connections) {
-        removeConnection("test-reject", ws);
-      }
-    });
-
-    test("tracks connections separately per subdomain", () => {
-      const ws1 = createMockWs();
-      const ws2 = createMockWs();
-
-      addConnection("subdomain-a", ws1);
-      addConnection("subdomain-b", ws2);
-
-      expect(getConnectionCount("subdomain-a")).toBe(1);
-      expect(getConnectionCount("subdomain-b")).toBe(1);
-
-      // Cleanup
-      removeConnection("subdomain-a", ws1);
-      removeConnection("subdomain-b", ws2);
+      removeConnection(ws);
     });
   });
 
   describe("removeConnection", () => {
     test("removes a connection", () => {
       const ws = createMockWs();
-      addConnection("test-remove", ws);
-      expect(getConnectionCount("test-remove")).toBe(1);
+      const filter = { headerName: null, headerValue: null };
+      addConnection(ws, filter);
+      const countBefore = getConnectionCount();
 
-      removeConnection("test-remove", ws);
-      expect(getConnectionCount("test-remove")).toBe(0);
-    });
-
-    test("cleans up subdomain entry when last connection is removed", () => {
-      const ws = createMockWs();
-      addConnection("test-cleanup", ws);
-      removeConnection("test-cleanup", ws);
-
-      // Connection count should be 0 and subdomain should be cleaned up
-      expect(getConnectionCount("test-cleanup")).toBe(0);
+      removeConnection(ws);
+      expect(getConnectionCount()).toBe(countBefore - 1);
     });
 
     test("handles removing non-existent connection gracefully", () => {
       const ws = createMockWs();
       // Should not throw
-      expect(() => removeConnection("nonexistent", ws)).not.toThrow();
+      expect(() => removeConnection(ws)).not.toThrow();
     });
   });
 
-  describe("getConnectionCount", () => {
-    test("returns 0 for unknown subdomain", () => {
-      expect(getConnectionCount("unknown-subdomain")).toBe(0);
-    });
+  describe("broadcastRequest", () => {
+    test("broadcasts to client with no filter (receives all requests)", () => {
+      const ws = createMockWs();
+      const filter = { headerName: null, headerValue: null };
+      addConnection(ws, filter);
 
-    test("returns correct count after adding connections", () => {
-      const ws1 = createMockWs();
-      const ws2 = createMockWs();
+      const request = createMockRequest({ headers: { "x-test": "value" } });
+      broadcastRequest(request);
 
-      addConnection("test-count", ws1);
-      addConnection("test-count", ws2);
-
-      expect(getConnectionCount("test-count")).toBe(2);
+      expect(ws.send).toHaveBeenCalled();
 
       // Cleanup
-      removeConnection("test-count", ws1);
-      removeConnection("test-count", ws2);
+      removeConnection(ws);
     });
-  });
 
-  describe("getTotalConnections", () => {
-    test("returns total across all subdomains", () => {
+    test("broadcasts to client when header name matches", () => {
+      const ws = createMockWs();
+      const filter = { headerName: "X-Test", headerValue: null };
+      addConnection(ws, filter);
+
+      const request = createMockRequest({ headers: { "X-Test": "any-value" } });
+      broadcastRequest(request);
+
+      expect(ws.send).toHaveBeenCalled();
+
+      // Cleanup
+      removeConnection(ws);
+    });
+
+    test("does not broadcast when header name does not match", () => {
+      const ws = createMockWs();
+      const filter = { headerName: "X-Test", headerValue: null };
+      addConnection(ws, filter);
+
+      const request = createMockRequest({
+        headers: { "X-Different": "value" },
+      });
+      broadcastRequest(request);
+
+      expect(ws.send).not.toHaveBeenCalled();
+
+      // Cleanup
+      removeConnection(ws);
+    });
+
+    test("broadcasts when header name and value both match", () => {
+      const ws = createMockWs();
+      const filter = { headerName: "Authorization", headerValue: "Bearer abc" };
+      addConnection(ws, filter);
+
+      const request = createMockRequest({
+        headers: { Authorization: "Bearer abc" },
+      });
+      broadcastRequest(request);
+
+      expect(ws.send).toHaveBeenCalled();
+
+      // Cleanup
+      removeConnection(ws);
+    });
+
+    test("does not broadcast when header value does not match", () => {
+      const ws = createMockWs();
+      const filter = { headerName: "Authorization", headerValue: "Bearer abc" };
+      addConnection(ws, filter);
+
+      const request = createMockRequest({
+        headers: { Authorization: "Bearer xyz" },
+      });
+      broadcastRequest(request);
+
+      expect(ws.send).not.toHaveBeenCalled();
+
+      // Cleanup
+      removeConnection(ws);
+    });
+
+    test("header name matching is case-insensitive", () => {
+      const ws = createMockWs();
+      const filter = { headerName: "x-test", headerValue: "value" };
+      addConnection(ws, filter);
+
+      const request = createMockRequest({ headers: { "X-Test": "value" } });
+      broadcastRequest(request);
+
+      expect(ws.send).toHaveBeenCalled();
+
+      // Cleanup
+      removeConnection(ws);
+    });
+
+    test("header value matching is case-sensitive", () => {
+      const ws = createMockWs();
+      const filter = { headerName: "X-Test", headerValue: "Value" };
+      addConnection(ws, filter);
+
+      const request = createMockRequest({ headers: { "X-Test": "value" } });
+      broadcastRequest(request);
+
+      expect(ws.send).not.toHaveBeenCalled();
+
+      // Cleanup
+      removeConnection(ws);
+    });
+
+    test("broadcasts only to matching clients", () => {
       const ws1 = createMockWs();
       const ws2 = createMockWs();
       const ws3 = createMockWs();
 
-      const initialTotal = getTotalConnections();
+      addConnection(ws1, { headerName: "X-Test", headerValue: "abc" });
+      addConnection(ws2, { headerName: "X-Test", headerValue: "xyz" });
+      addConnection(ws3, { headerName: null, headerValue: null }); // No filter - receives all
 
-      addConnection("total-a", ws1);
-      addConnection("total-a", ws2);
-      addConnection("total-b", ws3);
+      const request = createMockRequest({ headers: { "X-Test": "abc" } });
+      broadcastRequest(request);
 
-      expect(getTotalConnections()).toBe(initialTotal + 3);
+      expect(ws1.send).toHaveBeenCalled();
+      expect(ws2.send).not.toHaveBeenCalled();
+      expect(ws3.send).toHaveBeenCalled(); // No filter receives all
 
       // Cleanup
-      removeConnection("total-a", ws1);
-      removeConnection("total-a", ws2);
-      removeConnection("total-b", ws3);
+      removeConnection(ws1);
+      removeConnection(ws2);
+      removeConnection(ws3);
+    });
+
+    test("does not throw when no connections exist", () => {
+      const request = createMockRequest();
+      expect(() => broadcastRequest(request)).not.toThrow();
     });
   });
 
-  describe("broadcastToSubdomain", () => {
-    test("sends message to all connections for subdomain", () => {
-      const ws1 = createMockWs();
-      const ws2 = createMockWs();
-
-      addConnection("broadcast", ws1);
-      addConnection("broadcast", ws2);
-
-      const request = {
-        id: "test-id",
-        timestamp: Date.now(),
-        method: "GET" as const,
-        path: "/test",
-        headers: {},
-        body: null,
-        bodySize: 0,
-        bodyEncoding: "utf8" as const,
-      };
-
-      broadcastToSubdomain("broadcast", request);
-
-      expect(ws1.send).toHaveBeenCalled();
-      expect(ws2.send).toHaveBeenCalled();
-
-      // Cleanup
-      removeConnection("broadcast", ws1);
-      removeConnection("broadcast", ws2);
-    });
-
-    test("does not throw for subdomain with no connections", () => {
-      const request = {
-        id: "test-id",
-        timestamp: Date.now(),
-        method: "GET" as const,
-        path: "/test",
-        headers: {},
-        body: null,
-        bodySize: 0,
-        bodyEncoding: "utf8" as const,
-      };
-
-      expect(() =>
-        broadcastToSubdomain("no-connections", request)
-      ).not.toThrow();
+  describe("getConnectionCount", () => {
+    test("returns 0 when no connections", () => {
+      // Note: This test assumes clean state, which may not be guaranteed
+      // In practice, this is more of a sanity check
+      const initialCount = getConnectionCount();
+      const ws = createMockWs();
+      addConnection(ws, { headerName: null, headerValue: null });
+      expect(getConnectionCount()).toBe(initialCount + 1);
+      removeConnection(ws);
+      expect(getConnectionCount()).toBe(initialCount);
     });
   });
 });

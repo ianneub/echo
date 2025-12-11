@@ -5,10 +5,14 @@ import type { ServerWebSocket } from "bun";
 import {
   addConnection,
   removeConnection,
-  broadcastToSubdomain,
+  broadcastRequest,
 } from "./lib/connections";
 import { logger } from "./lib/logger";
-import type { CapturedRequest, BodyEncoding } from "../shared/types";
+import type {
+  CapturedRequest,
+  BodyEncoding,
+  RequestFilter,
+} from "../shared/types";
 
 const app = new Hono();
 
@@ -18,31 +22,37 @@ app.use("/api/*", cors());
 // Max body size: 10MB
 const MAX_BODY_SIZE = 10 * 1024 * 1024;
 
-// Main domain for the app (configurable via env var)
-const MAIN_DOMAIN = process.env.ECHO_DOMAIN || "echo.example.com";
+// Domain configuration
+const CONSOLE_DOMAIN = process.env.CONSOLE_DOMAIN || "console.localhost";
+const INSPECT_DOMAIN = process.env.INSPECT_DOMAIN || "inspect.localhost";
 
-// Extract subdomain from host header
-function getSubdomain(host: string): string | null {
-  // Remove port if present
+// Validate domains are different
+if (CONSOLE_DOMAIN === INSPECT_DOMAIN) {
+  console.error("ERROR: CONSOLE_DOMAIN and INSPECT_DOMAIN must be different");
+  process.exit(1);
+}
+
+// Determine domain type from host header
+type DomainType = "console" | "inspect" | "unknown";
+
+function getDomainType(host: string): DomainType {
   const hostname = host.split(":")[0] || "";
 
-  // Check if it's the main domain or localhost
+  // Console domain (or localhost for development)
   if (
-    hostname === MAIN_DOMAIN ||
+    hostname === CONSOLE_DOMAIN ||
     hostname === "localhost" ||
     hostname === "127.0.0.1"
   ) {
-    return null;
+    return "console";
   }
 
-  // Check if hostname ends with the main domain
-  if (hostname.endsWith(`.${MAIN_DOMAIN}`)) {
-    // Extract subdomain: "asdf.echo.example.com" -> "asdf"
-    const subdomain = hostname.slice(0, -(MAIN_DOMAIN.length + 1));
-    return subdomain || null;
+  // Inspect domain
+  if (hostname === INSPECT_DOMAIN) {
+    return "inspect";
   }
 
-  return null;
+  return "unknown";
 }
 
 // Generate unique ID for requests
@@ -97,19 +107,26 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 // Health check endpoint
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-// The main request capture handler - catches ALL requests to subdomains
+// The main request capture handler - catches ALL requests to inspect domain
 app.all("*", async (c, next) => {
   const host = c.req.header("host") || "";
-  const subdomain = getSubdomain(host);
+  const domainType = getDomainType(host);
 
-  logger.debug(`[DEBUG] Request received - Host: ${host}, Subdomain: ${subdomain}, Path: ${c.req.path}`);
+  logger.debug(
+    `[DEBUG] Request received - Host: ${host}, DomainType: ${domainType}, Path: ${c.req.path}`
+  );
 
-  // If no subdomain, continue to static file serving
-  if (!subdomain) {
+  // If console domain, continue to static file serving
+  if (domainType === "console") {
     return next();
   }
 
-  // Capture the request
+  // If unknown domain, return 404
+  if (domainType === "unknown") {
+    return c.text("Not Found", 404);
+  }
+
+  // Inspect domain - capture the request
   const url = new URL(c.req.url);
 
   // Check body size before reading
@@ -170,12 +187,10 @@ app.all("*", async (c, next) => {
     bodyEncoding,
   };
 
-  logger.debug(
-    `[REQ] ${subdomain} - ${capturedRequest.method} ${capturedRequest.path}`
-  );
+  logger.debug(`[REQ] ${capturedRequest.method} ${capturedRequest.path}`);
 
   // Broadcast to connected WebSocket clients
-  broadcastToSubdomain(subdomain, capturedRequest);
+  broadcastRequest(capturedRequest);
 
   // Always return 200 OK with "OK" body
   return c.text("OK", 200);
@@ -192,7 +207,10 @@ try {
 
 function getInjectedHtml(): string {
   if (!indexHtml) return "";
-  const script = `<script>window.__ECHO_DOMAIN__ = ${JSON.stringify(MAIN_DOMAIN)};</script>`;
+  const script = `<script>
+    window.__CONSOLE_DOMAIN__ = ${JSON.stringify(CONSOLE_DOMAIN)};
+    window.__INSPECT_DOMAIN__ = ${JSON.stringify(INSPECT_DOMAIN)};
+  </script>`;
   return indexHtml.replace("<head>", `<head>${script}`);
 }
 
@@ -218,7 +236,7 @@ app.get("*", (c) => {
 
 // WebSocket data type
 interface WebSocketData {
-  subdomain: string;
+  filter: RequestFilter;
 }
 
 // Start server with WebSocket support
@@ -227,16 +245,18 @@ const server = Bun.serve<WebSocketData>({
   fetch(req, server) {
     const url = new URL(req.url);
 
-    // Handle WebSocket upgrade for /ws/:subdomain
-    if (url.pathname.startsWith("/ws/")) {
-      const subdomain = url.pathname.slice(4); // Remove "/ws/"
+    // Handle WebSocket upgrade for /ws
+    if (url.pathname === "/ws") {
+      const headerName = url.searchParams.get("header") || null;
+      const headerValue = url.searchParams.get("value") || null;
 
-      if (!subdomain) {
-        return new Response("Missing subdomain", { status: 400 });
-      }
+      const filter: RequestFilter = {
+        headerName,
+        headerValue: headerName ? headerValue : null,
+      };
 
       const upgraded = server.upgrade(req, {
-        data: { subdomain },
+        data: { filter },
       });
 
       if (upgraded) {
@@ -252,45 +272,52 @@ const server = Bun.serve<WebSocketData>({
   },
   websocket: {
     open(ws: ServerWebSocket<WebSocketData>) {
-      const subdomain = ws.data.subdomain;
-      const added = addConnection(subdomain, ws);
+      const { filter } = ws.data;
+      const added = addConnection(ws, filter);
 
       if (!added) {
         // Connection limit reached
         ws.close(
           4000,
-          "Connection limit reached (5 max). Please close another tab."
+          "Connection limit reached (100 max). Please try again later."
         );
         return;
       }
 
-      logger.info(`[WS] Client connected to subdomain: ${subdomain}`);
+      const filterDesc = filter.headerName
+        ? `header "${filter.headerName}"${filter.headerValue ? ` = "${filter.headerValue}"` : ""}`
+        : "all requests";
+
+      logger.info(`[WS] Client connected, filtering: ${filterDesc}`);
 
       // Send connected message
       ws.send(
         JSON.stringify({
           type: "connected",
-          message: `Connected to ${subdomain}`,
+          message: `Connected, filtering: ${filterDesc}`,
         })
       );
     },
     message(ws: ServerWebSocket<WebSocketData>, message) {
       // We don't expect messages from clients, but log if received
-      logger.debug(`[WS] Received message from ${ws.data.subdomain}:`, message);
+      logger.debug(`[WS] Received message:`, message);
     },
     close(ws: ServerWebSocket<WebSocketData>) {
-      logger.info(`[WS] Client disconnected from subdomain: ${ws.data.subdomain}`);
-      removeConnection(ws.data.subdomain, ws);
+      logger.info(`[WS] Client disconnected`);
+      removeConnection(ws);
     },
   },
 });
 
 logger.info(`
-╔═══════════════════════════════════════════════════════╗
-║                                                       ║
-║   Echo Server running on http://localhost:3000        ║
-║                                                       ║
-║   WebSocket: ws://localhost:3000/ws/:subdomain        ║
-║                                                       ║
-╚═══════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║   Echo Server running on http://localhost:3000                ║
+║                                                               ║
+║   Console Domain: ${CONSOLE_DOMAIN.padEnd(42)}║
+║   Inspect Domain: ${INSPECT_DOMAIN.padEnd(42)}║
+║                                                               ║
+║   WebSocket: ws://localhost:3000/ws                           ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
 `);
